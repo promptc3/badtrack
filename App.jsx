@@ -6,8 +6,7 @@
  * @format
  */
 
-import React, {useState} from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   Button,
   SafeAreaView,
@@ -23,7 +22,6 @@ import {
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
-import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 
 import {useSharedValue} from 'react-native-reanimated';
@@ -31,20 +29,12 @@ import {Slider} from 'react-native-awesome-slider';
 
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+import {saveHabit, habitCount, observeHabits, allHabits} from './model/helper';
+import {withObservables} from '@nozbe/watermelondb/react';
 
-type RootStackParamList = {
-  HabitOverview: undefined;
-  NewHabit: {habitId: string};
-};
+const Stack = createNativeStackNavigator();
 
-type ScreenProps = NativeStackScreenProps<RootStackParamList>;
-
-const Stack = createNativeStackNavigator<RootStackParamList>();
-
-function Section({children, title}: SectionProps): React.JSX.Element {
+function Section({children, title}) {
   const isDarkMode = useColorScheme() === 'dark';
   return (
     <View style={styles.sectionContainer}>
@@ -70,8 +60,27 @@ function Section({children, title}: SectionProps): React.JSX.Element {
   );
 }
 
-function HabitOverview({navigation}: ScreenProps): React.JSX.Element {
+const HabitList = ({habits}) => {
+  return (
+    <View
+      style={{
+        backgroundColor: Colors.darker,
+      }}>
+      {habits.map(habit => {
+        return (
+          <Section key={habit.id} title={habit.title}>
+            {habit.icon} | {habit.verb}
+          </Section>
+        );
+      })}
+    </View>
+  );
+};
+
+function HabitOverview({navigation}) {
   const isDarkMode = useColorScheme() === 'dark';
+
+  const [totalHabit, setTotalHabit] = useState(0);
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
@@ -84,6 +93,15 @@ function HabitOverview({navigation}: ScreenProps): React.JSX.Element {
   const progress = useSharedValue(30);
   const min = useSharedValue(0);
   const max = useSharedValue(100);
+
+  (async () => {
+    setTotalHabit(await habitCount());
+  })();
+  const enhance = withObservables([], () => ({
+    habits: observeHabits(),
+  }));
+
+  const EnhancedHabits = enhance(HabitList);
 
   return (
     <SafeAreaView style={backgroundStyle}>
@@ -100,18 +118,11 @@ function HabitOverview({navigation}: ScreenProps): React.JSX.Element {
           }}>
           <Section title="Badtrack">For the ones fueled by negativity</Section>
         </View>
-        <View
-          style={{
-            width: 150,
-            height: 150,
-            borderRadius: 4,
-            padding: 1,
-            marginTop: 2,
-            backgroundColor: Colors.white,
-          }}>
-          <Text style={{color: Colors.black, fontSize: 20}}>Smoking</Text>
-          <Button onPress={handleOnPress} title="New" color={'#2e2e2e'} />
-        </View>
+        <Text style={{color: Colors.lighter, fontSize: 14}}>
+          Total bad habit : {totalHabit}
+        </Text>
+        <EnhancedHabits />
+        <Button onPress={handleOnPress} title="New" color={'#2e2e2e'} />
         <Slider
           style={{height: 20}}
           progress={progress}
@@ -123,10 +134,22 @@ function HabitOverview({navigation}: ScreenProps): React.JSX.Element {
   );
 }
 
-function NewHabit({navigation, route}: ScreenProps): React.JSX.Element {
-  const [habitname, setHabitName] = useState('');
+function NewHabit({navigation, route}) {
+  const [habitName, setHabitName] = useState('');
   const [habitIcon, setHabitIcon] = useState('');
   const [habitVerb, setHabitVerb] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSavePress = async () => {
+    setIsSaving(true);
+    await saveHabit(habitName, habitIcon, habitVerb);
+    setHabitName('');
+    setHabitIcon('');
+    setHabitVerb('');
+    setIsSaving(false);
+    navigation.navigate('HabitOverview');
+  };
+
   return (
     <Section title="New Habit">
       <View style={{padding: 10, backgroundColor: Colors.black}}>
@@ -151,13 +174,10 @@ function NewHabit({navigation, route}: ScreenProps): React.JSX.Element {
           onChangeText={nt => setHabitVerb(nt)}
         />
       </View>
-      <Section title={habitname}>
+      <Section title={habitName}>
         Id: {route.params.habitId} | Icon: {habitIcon} | Verb: {habitVerb}
       </Section>
-      <Button
-        title="Save"
-        onPress={() => navigation.navigate('HabitOverview')}
-      />
+      <Button title="Save" disabled={isSaving} onPress={handleSavePress} />
       <Button
         title="Cancel"
         onPress={() => navigation.navigate('HabitOverview')}
@@ -165,7 +185,7 @@ function NewHabit({navigation, route}: ScreenProps): React.JSX.Element {
     </Section>
   );
 }
-function App(): React.JSX.Element {
+function App() {
   return (
     <GestureHandlerRootView style={{flex: 1}}>
       <NavigationContainer>
@@ -180,7 +200,7 @@ function App(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   sectionContainer: {
-    marginTop: 32,
+    marginTop: 16,
     paddingHorizontal: 24,
   },
   sectionTitle: {
@@ -189,6 +209,7 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     marginTop: 8,
+    marginBottom: 8,
     fontSize: 18,
     fontWeight: '400',
   },

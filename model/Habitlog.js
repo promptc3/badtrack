@@ -1,5 +1,11 @@
 import {Model} from '@nozbe/watermelondb';
-import {text, relation, readonly, date} from '@nozbe/watermelondb/decorators';
+import {
+  text,
+  number,
+  relation,
+  readonly,
+  date,
+} from '@nozbe/watermelondb/decorators';
 
 export default class Habitlog extends Model {
   static table = 'habitlogs';
@@ -7,8 +13,10 @@ export default class Habitlog extends Model {
     habits: {type: 'belongs_to', key: 'habit_id'},
   };
 
-  @text('scale') scale;
+  @number('scale') scale;
   @text('comment') comment;
+  @text('render_color') renderColor;
+  @date('logged_at') loggedAt;
   @relation('habits', 'habit_id') habit;
   @readonly @date('created_at') createdAt;
 }

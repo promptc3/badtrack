@@ -31,6 +31,8 @@ import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {saveHabit, logHabit, allHabits, observeHabit} from './model/helper';
 import {withObservables} from '@nozbe/watermelondb/react';
 
+import EmojiPicker from 'rn-emoji-keyboard';
+
 const Stack = createNativeStackNavigator();
 
 function Section({children, title, onPress}) {
@@ -69,7 +71,7 @@ function Section({children, title, onPress}) {
 
 const Card = ({title, icon, subtitle, onPress}) => {
   const isDarkMode = useColorScheme() === 'dark';
-  const renderIcon = icon.substring(0, 1);
+  // const renderIcon = icon.substring(0, 1);
   return (
     <Pressable onPress={onPress}>
       <View
@@ -90,11 +92,17 @@ const Card = ({title, icon, subtitle, onPress}) => {
             fontSize: 32,
             alignSelf: 'center',
             height: 70,
-            color: primarycolors[2].hex,
           }}>
-          {renderIcon}
+          {icon}
         </Text>
-        <Text style={{fontSize: 18, fontWeight: 600}}>{title}</Text>
+        <Text
+          style={{
+            fontFamily: 'Poppins-Regular',
+            fontSize: 18,
+            fontWeight: 600,
+          }}>
+          {title}
+        </Text>
         <Text style={{fontSize: 16}}>{subtitle}</Text>
       </View>
     </Pressable>
@@ -186,8 +194,9 @@ function NewHabit({navigation, route}) {
     : styles.inputStyleLight;
 
   const [habitName, setHabitName] = useState('Smoking');
-  const [habitIcon, setHabitIcon] = useState('S');
-  const [habitVerb, setHabitVerb] = useState('5/10 cigarretes smoked');
+  const [habitIcon, setHabitIcon] = useState('🚬');
+  const [habitVerb, setHabitVerb] = useState('cigarretes smoked');
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleSavePress = async () => {
     await saveHabit(habitName, habitIcon, habitVerb);
@@ -200,15 +209,16 @@ function NewHabit({navigation, route}) {
   const renderVerb = '5/10 ' + habitVerb;
 
   return (
-    <View style={{flex: 1}}>
+    <SafeAreaView style={{flex: 1}}>
       <View style={{flex: 2, alignItems: 'center', paddingVertical: 12}}>
         <Card title={habitName} icon={habitIcon} subtitle={renderVerb} />
       </View>
-      <View style={{flex: 4, justifyContent: 'baseline'}}>
-        <TextInput
-          style={inputStyle}
-          placeholder="Icon to represent your habit"
-          onChangeText={nt => setHabitIcon(nt)}
+      <View style={{flex: 6, justifyContent: 'baseline'}}>
+        <AppButton title="😊" onPress={() => setIsOpen(true)} />
+        <EmojiPicker
+          onEmojiSelected={e => setHabitIcon(e.emoji)}
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
         />
         <TextInput
           style={inputStyle}
@@ -217,7 +227,7 @@ function NewHabit({navigation, route}) {
         />
         <TextInput
           style={inputStyle}
-          placeholder="Habit verb (like Smoked)"
+          placeholder="Additional details"
           onChangeText={nt => setHabitVerb(nt)}
         />
       </View>
@@ -228,7 +238,7 @@ function NewHabit({navigation, route}) {
         />
         <AppButton title="Save" onPress={handleSavePress} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

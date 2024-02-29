@@ -6,7 +6,7 @@
  * @format
  */
 
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   Appearance,
   Pressable,
@@ -28,7 +28,15 @@ import {Slider} from 'react-native-awesome-slider';
 
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
-import {saveHabit, logHabit, allHabits, observeHabit} from './model/helper';
+import {
+  saveHabit,
+  logHabit,
+  allHabits,
+  fetchLogsByHabitId,
+  observeHabit,
+  getAllLogs,
+  getHabitFromHabitId,
+} from './model/helper';
 import {withObservables} from '@nozbe/watermelondb/react';
 
 import EmojiPicker from 'rn-emoji-keyboard';
@@ -242,47 +250,76 @@ function NewHabit({navigation, route}) {
   );
 }
 
-const HabitLogs = ({habit}) => {
-  let logs = [];
-  (async () => {
-    logs = await habit.habitlogs;
-  })();
-  if (logs) {
+const HabitLogs = ({habit, logs}) => {
+  if (logs && logs.length > 0) {
     return (
-      <Section title={habit.title}>
-        {logs.map(l => {
-          return (
-            <Text>
-              Scale: {l.scale} | {l.comment} | {l.created_at}{' '}
-            </Text>
-          );
-        })}
-      </Section>
+      <View>
+        <Section title={habit.title} />
+        <ScrollView style={{flex: 1}}>
+          {logs.map(l => {
+            return (
+              <Text key={l.id}>
+                Scale: {l.scale} | {l.comment} | {l.created_at}{' '}
+              </Text>
+            );
+          })}
+        </ScrollView>
+      </View>
     );
   } else {
     return (
       <Section title={habit.title}>
-        <Text>No logs found</Text>
+        <Text style={{color: 'black'}}>No logs found</Text>
       </Section>
     );
   }
 };
 
 function ViewHabit({navigation, route}) {
-  const enhance = withObservables([], ({}) => ({
-    habit: observeHabit(route.params.habitId),
-  }));
+  const [crntHabit, setCrntHabit] = useState();
+  // getAllLogs()
+  //   .then(allLogs => {
+  //     allLogs.forEach(l => {
+  //       console.log(
+  //         `Id: ${l.id} scale: ${l.scale} comment: ${l.comment} habit: ${l.habit_id}`,
+  //       );
+  //     });
+  //   })
+  //   .catch(error => {
+  //     console.error('Error fetching logs:', error);
+  //   });
+  useEffect(() => {
+    getHabitFromHabitId(route.params.habitId)
+      .then(h => {
+        setCrntHabit(h);
+      })
+      .catch(err => {
+        console.error('Failed to fetch habit from habit id', err);
+      });
+  }, []);
 
   const handleLogPress = () => {
     navigation.navigate('Log', {habitId: route.params.habitId});
   };
 
+  const enhance = withObservables(['habit'], ({habit}) => ({
+    habit,
+    logs: habit.habitlogs,
+  }));
+
   const EnhancedLogs = enhance(HabitLogs);
+
+  console.log('crnt habit', crntHabit);
   return (
-    <View>
-      <EnhancedLogs />
+    <SafeAreaView style={{flex: 1}}>
+      {crntHabit ? (
+        <EnhancedLogs habit={crntHabit} />
+      ) : (
+        <HabitLogs habit={{title: ''}} logs={[]} />
+      )}
+      <EnhancedLogs habit={crntHabit} />
       <AppButton onPress={handleLogPress} title="Create Log" />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -302,7 +339,13 @@ function LogHabit({navigation, route}) {
   const max = useSharedValue(10);
 
   const handleLogSave = async () => {
-    await logHabit(log);
+    logHabit(log)
+      .then(newLog => {
+        console.log('Saved new log', newLog);
+      })
+      .catch(err => {
+        console.error('Failed to save log', err);
+      });
     navigation.navigate('View', {habitId: route.params.habitId});
   };
 

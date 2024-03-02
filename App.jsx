@@ -1,13 +1,8 @@
 /* eslint-disable react-native/no-inline-styles */
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
 
-import React, {useEffect, useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {
+  Alert,
   Appearance,
   Pressable,
   SafeAreaView,
@@ -36,12 +31,69 @@ import {
   observeHabit,
   getAllLogs,
   getHabitFromHabitId,
+  deleteHabit,
+  updateHabit,
 } from './model/helper';
 import {withObservables} from '@nozbe/watermelondb/react';
 
 import EmojiPicker from 'rn-emoji-keyboard';
+import BottomSheet, {BottomSheetView} from '@gorhom/bottom-sheet';
 
 const Stack = createNativeStackNavigator();
+
+function ButtonGroup({buttons, selectedIndex, onPress}) {
+  const getBtnBorderRadius = index => {
+    if (index > 0 && index === buttons.length) {
+      return {borderBottomRightRadius: 10, borderTopRightRadius: 10};
+    } else if (index === 0) {
+      return {borderBottomLeftRadius: 10, borderTopLeftRadius: 10};
+    } else {
+      return {borderRadius: 0};
+    }
+  };
+
+  const getBtnBackground = index => {
+    if (selectedIndex && index === selectedIndex) {
+      return {backgroundColor: 'lightblue'};
+    }
+    return {backgroundColor: 'white'};
+  };
+
+  const handleSelect = (value, index) => {
+    if (value) {
+      onPress(value, index);
+    }
+    onPress();
+  };
+
+  return (
+    <View style={{flex: 1, flexDirection: 'row', flexWrap: 'nowrap'}}>
+      {buttons.map((b, i) => {
+        const btnBorderRadius = getBtnBorderRadius(i);
+        const btnBg = getBtnBackground(i);
+        <Pressable
+          style={[btnBorderRadius, btnBg, {borderWidth: 1, padding: 10}]}
+          onPress={() => handleSelect(b, i)}>
+          <Text>{b}</Text>
+        </Pressable>;
+      })}
+    </View>
+  );
+}
+
+const AppButton = ({title, onPress}) => {
+  const isDarkMode = useColorScheme() === 'dark';
+  const backgroundStyle = {
+    backgroundColor: isDarkMode ? blackcolors[4].hex : blackcolors[3].hex,
+  };
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.appButtonContainer, backgroundStyle]}>
+      <Text style={styles.appButtonText}>{title}</Text>
+    </Pressable>
+  );
+};
 
 function Section({children, title, onPress}) {
   const isDarkMode = useColorScheme() === 'dark';
@@ -137,25 +189,11 @@ const HabitList = ({habits, navigation}) => {
             title={habit.title}
             icon={habit.icon}
             subtitle={habit.verb}
-            onPress={() => navigation.navigate('View', {habitId: habit.id})}
+            onPress={() => navigation.navigate('View', {habit: habit})}
           />
         );
       })}
     </View>
-  );
-};
-
-const AppButton = ({title, onPress}) => {
-  const isDarkMode = useColorScheme() === 'dark';
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? blackcolors[4].hex : blackcolors[3].hex,
-  };
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.appButtonContainer, backgroundStyle]}>
-      <Text style={styles.appButtonText}>{title}</Text>
-    </Pressable>
   );
 };
 
@@ -175,6 +213,13 @@ function HabitOverview({navigation}) {
     setHabitList(await allHabits());
   })();
 
+  const [item, setItem] = useState();
+
+  const selectItem = (val, index) => {
+    console.log('Item Selected: ', val);
+    setItem(index);
+  };
+
   return (
     <SafeAreaView style={[backgroundStyle, {flex: 1}]}>
       <StatusBar
@@ -190,6 +235,11 @@ function HabitOverview({navigation}) {
         {/* <Text style={textStyle}> Total bad habit : {totalHabit} </Text> */}
         <HabitList habits={habitList} navigation={navigation} />
       </ScrollView>
+      <ButtonGroup
+        buttons={['Good', 'Bad', 'Neutral']}
+        selectedIndex={item}
+        onPress={selectItem}
+      />
       <AppButton title={'New Habit'} onPress={handleOnPress} />
     </SafeAreaView>
   );
@@ -201,42 +251,63 @@ function NewHabit({navigation, route}) {
     ? styles.inputStyleDark
     : styles.inputStyleLight;
 
-  const [habitName, setHabitName] = useState('Smoking');
-  const [habitIcon, setHabitIcon] = useState('🚬');
-  const [habitVerb, setHabitVerb] = useState('cigarretes smoked');
   const [isOpen, setIsOpen] = useState(false);
 
+  const [habit, setHabit] = useState({
+    title: 'Smoking',
+    icon: '🚬',
+    verb: 'Injurios to health',
+    habitType: 'neutral',
+    scaleLimit: 10,
+    scaleType: 'linear',
+    scaleStep: 1,
+    scaleUnit: 'Qty.',
+  });
+
+  const renderVerb = '5/10 ' + habit.verb;
   const handleSavePress = async () => {
-    await saveHabit(habitName, habitIcon, habitVerb);
-    setHabitName('');
-    setHabitIcon('');
-    setHabitVerb('');
+    await saveHabit(habit);
     navigation.navigate('Habits');
   };
-
-  const renderVerb = '5/10 ' + habitVerb;
 
   return (
     <SafeAreaView style={{flex: 1}}>
       <View style={{flex: 2, alignItems: 'center', paddingVertical: 12}}>
-        <Card title={habitName} icon={habitIcon} subtitle={renderVerb} />
+        <Card title={habit.name} icon={habit.icon} subtitle={renderVerb} />
       </View>
       <View style={{flex: 6, justifyContent: 'baseline'}}>
-        <AppButton title="😊" onPress={() => setIsOpen(true)} />
+        <SmallButton title="😊" onPress={() => setIsOpen(true)} />
         <EmojiPicker
-          onEmojiSelected={e => setHabitIcon(e.emoji)}
+          onEmojiSelected={e => setHabit({...habit, icon: e.emoji})}
           open={isOpen}
           onClose={() => setIsOpen(false)}
         />
         <TextInput
           style={inputStyle}
           placeholder="Habit name (like Smoking)"
-          onChangeText={nt => setHabitName(nt)}
+          onChangeText={nt => setHabit({...habit, title: nt})}
         />
         <TextInput
           style={inputStyle}
           placeholder="Additional details"
-          onChangeText={nt => setHabitVerb(nt)}
+          onChangeText={nt => setHabit({...habit, verb: nt})}
+        />
+        <TextInput
+          style={inputStyle}
+          inputMode="numeric"
+          placeholder="Scale limit"
+          onChangeText={nt => setHabit({...habit, scaleLimit: nt})}
+        />
+        <TextInput
+          style={inputStyle}
+          inputMode="numeric"
+          placeholder="Scale step"
+          onChangeText={nt => setHabit({...habit, scaleStep: nt})}
+        />
+        <TextInput
+          style={inputStyle}
+          placeholder="Scale unit (like Kg, Mtr etc.)"
+          onChangeText={nt => setHabit({...habit, scaleUnit: nt})}
         />
       </View>
       <View style={styles.buttonGroup}>
@@ -251,16 +322,21 @@ function NewHabit({navigation, route}) {
 }
 
 const HabitLogs = ({habit, logs}) => {
+  // console.info('Habit logs: ', logs);
+  const dateStr = timestamp => {
+    return timestamp
+      ? new Date(timestamp).toDateString()
+      : new Date().toDateString();
+  };
   if (logs && logs.length > 0) {
     return (
       <View>
-        <Section title={habit.title} />
-        <ScrollView style={{flex: 1}}>
+        <ScrollView>
           {logs.map(l => {
             return (
-              <Text key={l.id}>
-                Scale: {l.scale} | {l.comment} | {l.created_at}{' '}
-              </Text>
+              <Section title={l.scale} key={l.id} style={{color: 'black'}}>
+                {l.comment} | {dateStr(l.createdAt)}
+              </Section>
             );
           })}
         </ScrollView>
@@ -275,32 +351,117 @@ const HabitLogs = ({habit, logs}) => {
   }
 };
 
+function SmallButton({title, onPress}) {
+  const isDarkMode = useColorScheme() === 'dark';
+  const btnColor = isDarkMode ? 'white' : 'black';
+  return (
+    <Pressable
+      style={[styles.smallButton, {borderColor: btnColor, color: btnColor}]}
+      onPress={onPress}>
+      <Text style={{textTransform: 'uppercase', color: btnColor, fontSize: 14}}>
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
+function DeleteButton({confirmation, onPress}) {
+  const handleDelete = () => {
+    if (confirmation) {
+      // open confirmation
+      Alert.alert('Confirmation', 'Are you sure ?', [
+        {
+          text: 'Cancel',
+          onPress: () => console.log('Cancel Pressed'),
+          style: 'cancel',
+        },
+        {text: 'OK', onPress: () => onPress()},
+      ]);
+    } else {
+      onPress();
+    }
+  };
+  return (
+    <Pressable
+      style={[styles.smallButton, {borderColor: 'red', color: 'red'}]}
+      onPress={handleDelete}>
+      <Text style={{textTransform: 'uppercase', color: 'red', fontSize: 14}}>
+        Delete
+      </Text>
+    </Pressable>
+  );
+}
+
+function EditHabit({habit, sheetRef}) {
+  const isDarkMode = useColorScheme() === 'dark';
+  const inputStyle = isDarkMode
+    ? styles.inputStyleDark
+    : styles.inputStyleLight;
+
+  const [title, setTitle] = useState(habit.title);
+  const [icon, setIcon] = useState(habit.icon);
+  const [verb, setVerb] = useState(habit.verb);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleEdit = async () => {
+    await updateHabit({
+      habit: habit,
+      newTitle: title,
+      newIcon: icon,
+      newVerb: verb,
+    });
+  };
+
+  return (
+    <View>
+      <TextInput
+        style={inputStyle}
+        value={title}
+        onChangeText={nt => setTitle(nt)}
+      />
+      <SmallButton title={icon} onPress={() => setIsOpen(true)} />
+      <EmojiPicker
+        onEmojiSelected={e => setIcon(e.emoji)}
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+      />
+      <TextInput
+        style={inputStyle}
+        value={verb}
+        onChangeText={nt => setVerb(nt)}
+      />
+      <AppButton title="Save" onPress={handleEdit} />
+    </View>
+  );
+}
+
 function ViewHabit({navigation, route}) {
-  const [crntHabit, setCrntHabit] = useState();
+  const crntHabit = route.params.habit;
   // getAllLogs()
   //   .then(allLogs => {
   //     allLogs.forEach(l => {
   //       console.log(
-  //         `Id: ${l.id} scale: ${l.scale} comment: ${l.comment} habit: ${l.habit_id}`,
+  //         `Id: ${l.id} scale: ${l.scale} comment: ${l.comment} habit: ${l.habit}`,
   //       );
   //     });
   //   })
   //   .catch(error => {
   //     console.error('Error fetching logs:', error);
   //   });
-  useEffect(() => {
-    getHabitFromHabitId(route.params.habitId)
-      .then(h => {
-        setCrntHabit(h);
-      })
-      .catch(err => {
-        console.error('Failed to fetch habit from habit id', err);
-      });
-  }, []);
+  const logSheetRef = useRef(null);
+  const editSheetRef = useRef(null);
 
-  const handleLogPress = () => {
-    navigation.navigate('Log', {habitId: route.params.habitId});
+  const handleDelete = async () => {
+    await deleteHabit(crntHabit);
+    navigation.navigate('Habits');
   };
+
+  const handleEdit = () => {
+    editSheetRef.current.expand();
+  };
+  // const handleLogPress = () => {
+  //   navigation.navigate('Log', {habit: crntHabit});
+  // };
 
   const enhance = withObservables(['habit'], ({habit}) => ({
     habit,
@@ -309,21 +470,42 @@ function ViewHabit({navigation, route}) {
 
   const EnhancedLogs = enhance(HabitLogs);
 
-  console.log('crnt habit', crntHabit);
+  // console.log('crnt habit', crntHabit);
   return (
     <SafeAreaView style={{flex: 1}}>
+      <Text style={styles.header1}>{crntHabit.title}</Text>
+      <SmallButton title="Edit" onPress={handleEdit} />
+      <DeleteButton confirmation={true} onPress={handleDelete} />
       {crntHabit ? (
         <EnhancedLogs habit={crntHabit} />
       ) : (
         <HabitLogs habit={{title: ''}} logs={[]} />
       )}
-      <EnhancedLogs habit={crntHabit} />
-      <AppButton onPress={handleLogPress} title="Create Log" />
+      <BottomSheet
+        snapPoints={[60, '60%']}
+        enablePanDownToClose={true}
+        ref={editSheetRef}>
+        <BottomSheetView style={{flex: 1, paddingHorizontal: 7}}>
+          <Text style={{alignSelf: 'center', fontSize: 20}}>Edit</Text>
+          <EditHabit habit={crntHabit} sheetRef={editSheetRef} />
+          <AppButton
+            title="Cancel"
+            onPress={() => editSheetRef.current.close()}
+          />
+        </BottomSheetView>
+      </BottomSheet>
+      <BottomSheet snapPoints={[60, '40%']} topInset={2} ref={logSheetRef}>
+        <BottomSheetView style={{flex: 1, paddingHorizontal: 7}}>
+          <Text style={{alignSelf: 'center', fontSize: 20}}>Log</Text>
+          <LogHabit habit={crntHabit} />
+        </BottomSheetView>
+      </BottomSheet>
+      {/* <AppButton onPress={handleLogPress} title="Create Log" /> */}
     </SafeAreaView>
   );
 }
 
-function LogHabit({navigation, route}) {
+function LogHabit({habit}) {
   const isDarkMode = useColorScheme() === 'dark';
   const inputStyle = isDarkMode
     ? styles.inputStyleDark
@@ -332,7 +514,7 @@ function LogHabit({navigation, route}) {
   const [log, setLog] = useState({
     scale: 0,
     comment: '',
-    habitId: route.params.habitId,
+    habit: habit,
   });
   const progress = useSharedValue(1);
   const min = useSharedValue(0);
@@ -342,50 +524,48 @@ function LogHabit({navigation, route}) {
     logHabit(log)
       .then(newLog => {
         console.log('Saved new log', newLog);
+        setLog({scale: 0, comment: '', habit: log.habit});
       })
       .catch(err => {
         console.error('Failed to save log', err);
       });
-    navigation.navigate('View', {habitId: route.params.habitId});
   };
 
   const handleCommentChange = val => {
-    setLog({scale: log.scale, comment: val, habitId: log.habitId});
+    setLog({scale: log.scale, comment: val, habit: log.habit});
   };
 
   const handleSliderChange = val => {
-    setLog({scale: val, comment: log.comment, habitId: log.habitId});
+    setLog({scale: val, comment: log.comment, habit: log.habit});
   };
 
-  const bgStyle = isDarkMode ? styles.darkBg : styles.lightBg;
   return (
-    <View style={[bgStyle, {flex: 1}]}>
-      <View style={{marginTop: 20, paddingVertical: 16, paddingHorizontal: 12}}>
-        <Slider
-          containerStyle={{
-            borderRadius: 10,
-            overflow: 'hidden',
-            marginTop: 50,
-            backgroundColor: inputStyle.backgroundColor,
-            maximumTrackTintColor: primarycolors[0].hex,
-            minimumTrackTintColor: primarycolors[3].hex,
-          }}
-          sliderHeight={50}
-          progress={progress}
-          minimumValue={min}
-          maximumValue={max}
-          onSlidingComplete={handleSliderChange}
-        />
-      </View>
-      <View
-        style={{flex: 1, flexDirection: 'column', justifyContent: 'flex-end'}}>
-        <TextInput
-          style={inputStyle}
-          placeholder="Comments ..."
-          onChangeText={handleCommentChange}
-        />
-        <AppButton onPress={handleLogSave} title="Save" />
-      </View>
+    <View style={{flex: 1}}>
+      <Text style={{alignSelf: 'center'}}>
+        {log.scale} | {log.comment}
+      </Text>
+      <Slider
+        style={{marginHorizontal: 10}}
+        containerStyle={{
+          borderRadius: 10,
+          backgroundColor: inputStyle.backgroundColor,
+          maximumTrackTintColor: primarycolors[0].hex,
+          minimumTrackTintColor: primarycolors[3].hex,
+        }}
+        sliderHeight={60}
+        progress={progress}
+        minimumValue={min}
+        maximumValue={max}
+        onSlidingComplete={handleSliderChange}
+      />
+      <TextInput
+        style={inputStyle}
+        multiline
+        numberOfLines={3}
+        placeholder="Comments ..."
+        onChangeText={handleCommentChange}
+      />
+      <AppButton onPress={handleLogSave} title="Save" />
     </View>
   );
 }
@@ -399,7 +579,6 @@ function App() {
           <Stack.Screen name="Habits" component={HabitOverview} />
           <Stack.Screen name="Create" component={NewHabit} />
           <Stack.Screen name="View" component={ViewHabit} />
-          <Stack.Screen name="Log" component={LogHabit} />
         </Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView>
@@ -616,6 +795,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'no-wrap',
     justifyContent: 'space-around',
+  },
+  header1: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    alignSelf: 'flex-start',
+    paddingTop: 12,
+    paddingLeft: 12,
+  },
+  smallButton: {
+    borderRadius: 10,
+    alignItems: 'center',
+    padding: 8,
+    borderWidth: 2,
+    margin: 10,
   },
 });
 

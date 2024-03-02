@@ -1,5 +1,5 @@
 import {Model} from '@nozbe/watermelondb';
-import {text, relation, readonly, date} from '@nozbe/watermelondb/decorators';
+import {text, relation, date, readonly} from '@nozbe/watermelondb/decorators';
 
 export default class Habitlog extends Model {
   static table = 'habitlogs';

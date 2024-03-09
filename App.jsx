@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 
-import React, {useRef, useState} from 'react';
+import React, {useMemo, useRef, useState} from 'react';
 import {
   Alert,
   Appearance,
@@ -19,7 +19,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {useSharedValue} from 'react-native-reanimated';
-import {Slider} from 'react-native-awesome-slider';
+import Slider from '@react-native-community/slider';
 
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
@@ -27,10 +27,6 @@ import {
   saveHabit,
   logHabit,
   allHabits,
-  fetchLogsByHabitId,
-  observeHabit,
-  getAllLogs,
-  getHabitFromHabitId,
   deleteHabit,
   updateHabit,
 } from './model/helper';
@@ -43,7 +39,7 @@ const Stack = createNativeStackNavigator();
 
 function ButtonGroup({buttons, selectedIndex, onPress}) {
   const getBtnBorderRadius = index => {
-    if (index > 0 && index === buttons.length) {
+    if (index > 0 && index === buttons.length - 1) {
       return {borderBottomRightRadius: 10, borderTopRightRadius: 10};
     } else if (index === 0) {
       return {borderBottomLeftRadius: 10, borderTopLeftRadius: 10};
@@ -52,30 +48,49 @@ function ButtonGroup({buttons, selectedIndex, onPress}) {
     }
   };
 
+  const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const getBtnBackground = index => {
-    if (selectedIndex && index === selectedIndex) {
+    if (activeIndex && index === activeIndex) {
       return {backgroundColor: 'lightblue'};
+    } else {
+      return {backgroundColor: 'white'};
     }
-    return {backgroundColor: 'white'};
   };
 
   const handleSelect = (value, index) => {
     if (value) {
+      setActiveIndex(index);
       onPress(value, index);
+    } else {
+      onPress();
     }
-    onPress();
   };
 
+  const flexBasisSize = `${99 / buttons.length}%`;
+  const btnList = useMemo(() => {
+    return buttons;
+  }, [buttons]);
+
   return (
-    <View style={{flex: 1, flexDirection: 'row', flexWrap: 'nowrap'}}>
-      {buttons.map((b, i) => {
+    <View
+      style={{flexDirection: 'row', flexWrap: 'nowrap', gap: 2, margin: 10}}>
+      {btnList.map((b, i) => {
         const btnBorderRadius = getBtnBorderRadius(i);
         const btnBg = getBtnBackground(i);
-        <Pressable
-          style={[btnBorderRadius, btnBg, {borderWidth: 1, padding: 10}]}
-          onPress={() => handleSelect(b, i)}>
-          <Text>{b}</Text>
-        </Pressable>;
+        return (
+          <Pressable
+            key={b}
+            style={[
+              btnBorderRadius,
+              btnBg,
+              {padding: 10, flexBasis: flexBasisSize},
+            ]}
+            onPress={() => handleSelect(b, i)}>
+            <Text style={{color: blackcolors[7].hex, alignSelf: 'center'}}>
+              {b}
+            </Text>
+          </Pressable>
+        );
       })}
     </View>
   );
@@ -213,13 +228,6 @@ function HabitOverview({navigation}) {
     setHabitList(await allHabits());
   })();
 
-  const [item, setItem] = useState();
-
-  const selectItem = (val, index) => {
-    console.log('Item Selected: ', val);
-    setItem(index);
-  };
-
   return (
     <SafeAreaView style={[backgroundStyle, {flex: 1}]}>
       <StatusBar
@@ -235,11 +243,6 @@ function HabitOverview({navigation}) {
         {/* <Text style={textStyle}> Total bad habit : {totalHabit} </Text> */}
         <HabitList habits={habitList} navigation={navigation} />
       </ScrollView>
-      <ButtonGroup
-        buttons={['Good', 'Bad', 'Neutral']}
-        selectedIndex={item}
-        onPress={selectItem}
-      />
       <AppButton title={'New Habit'} onPress={handleOnPress} />
     </SafeAreaView>
   );
@@ -252,6 +255,22 @@ function NewHabit({navigation, route}) {
     : styles.inputStyleLight;
 
   const [isOpen, setIsOpen] = useState(false);
+
+  const habitTypes = ['Good', 'Bad', 'Neutral'];
+  const scaleTypes = ['Stepped', 'Linear'];
+
+  const [htIndex, setHtIndex] = useState(); // HabitType Index
+  const [stIndex, setStIndex] = useState(); // ScaleType Index
+
+  const selectHabitType = (val, index) => {
+    setHtIndex(index);
+    setHabit({...habit, habitType: val});
+  };
+
+  const selectScaleType = (val, index) => {
+    setStIndex(index);
+    setHabit({...habit, scaleType: val});
+  };
 
   const [habit, setHabit] = useState({
     title: 'Smoking',
@@ -266,6 +285,7 @@ function NewHabit({navigation, route}) {
 
   const renderVerb = '5/10 ' + habit.verb;
   const handleSavePress = async () => {
+    console.log('Saving ...', habit);
     await saveHabit(habit);
     navigation.navigate('Habits');
   };
@@ -273,10 +293,22 @@ function NewHabit({navigation, route}) {
   return (
     <SafeAreaView style={{flex: 1}}>
       <View style={{flex: 2, alignItems: 'center', paddingVertical: 12}}>
-        <Card title={habit.name} icon={habit.icon} subtitle={renderVerb} />
+        <Card title={habit.title} icon={habit.icon} subtitle={renderVerb} />
       </View>
       <View style={{flex: 6, justifyContent: 'baseline'}}>
-        <SmallButton title="😊" onPress={() => setIsOpen(true)} />
+        <ButtonGroup
+          buttons={habitTypes}
+          selectedIndex={htIndex}
+          onPress={selectHabitType}
+        />
+        <View style={{flexDirection: 'row'}}>
+          <TextInput
+            style={[inputStyle, {flexBasis: '80%'}]}
+            placeholder="Habit name (like Smoking)"
+            onChangeText={nt => setHabit({...habit, title: nt})}
+          />
+          <SmallButton title="😊" onPress={() => setIsOpen(true)} />
+        </View>
         <EmojiPicker
           onEmojiSelected={e => setHabit({...habit, icon: e.emoji})}
           open={isOpen}
@@ -284,25 +316,27 @@ function NewHabit({navigation, route}) {
         />
         <TextInput
           style={inputStyle}
-          placeholder="Habit name (like Smoking)"
-          onChangeText={nt => setHabit({...habit, title: nt})}
-        />
-        <TextInput
-          style={inputStyle}
           placeholder="Additional details"
           onChangeText={nt => setHabit({...habit, verb: nt})}
         />
-        <TextInput
-          style={inputStyle}
-          inputMode="numeric"
-          placeholder="Scale limit"
-          onChangeText={nt => setHabit({...habit, scaleLimit: nt})}
+        <ButtonGroup
+          buttons={scaleTypes}
+          selectedIndex={stIndex}
+          onPress={selectScaleType}
         />
         <TextInput
           style={inputStyle}
           inputMode="numeric"
-          placeholder="Scale step"
-          onChangeText={nt => setHabit({...habit, scaleStep: nt})}
+          placeholder="Scale limit (like 10, 100 etc.)"
+          onChangeText={nt =>
+            setHabit({...habit, scaleLimit: parseInt(nt, 10)})
+          }
+        />
+        <TextInput
+          style={inputStyle}
+          inputMode="numeric"
+          placeholder="Scale step (like 1, 2 etc.)"
+          onChangeText={nt => setHabit({...habit, scaleStep: parseInt(nt, 10)})}
         />
         <TextInput
           style={inputStyle}
@@ -310,7 +344,7 @@ function NewHabit({navigation, route}) {
           onChangeText={nt => setHabit({...habit, scaleUnit: nt})}
         />
       </View>
-      <View style={styles.buttonGroup}>
+      <View style={[styles.buttonGroup, {flexBasis: '8%'}]}>
         <AppButton
           title="Cancel"
           onPress={() => navigation.navigate('Habits')}
@@ -344,9 +378,9 @@ const HabitLogs = ({habit, logs}) => {
     );
   } else {
     return (
-      <Section title={habit.title}>
-        <Text style={{color: 'black'}}>No logs found</Text>
-      </Section>
+      <Text style={{fontSize: 18, padding: 12, color: 'red'}}>
+        No logs found
+      </Text>
     );
   }
 };
@@ -358,7 +392,7 @@ function SmallButton({title, onPress}) {
     <Pressable
       style={[styles.smallButton, {borderColor: btnColor, color: btnColor}]}
       onPress={onPress}>
-      <Text style={{textTransform: 'uppercase', color: btnColor, fontSize: 14}}>
+      <Text style={{textTransform: 'uppercase', color: btnColor, fontSize: 24}}>
         {title}
       </Text>
     </Pressable>
@@ -383,9 +417,12 @@ function DeleteButton({confirmation, onPress}) {
   };
   return (
     <Pressable
-      style={[styles.smallButton, {borderColor: 'red', color: 'red'}]}
+      style={[
+        styles.smallButton,
+        {flexBasis: '17%', borderColor: 'red', color: 'red'},
+      ]}
       onPress={handleDelete}>
-      <Text style={{textTransform: 'uppercase', color: 'red', fontSize: 14}}>
+      <Text style={{textTransform: 'uppercase', color: 'red', fontSize: 12}}>
         Delete
       </Text>
     </Pressable>
@@ -470,12 +507,15 @@ function ViewHabit({navigation, route}) {
 
   const EnhancedLogs = enhance(HabitLogs);
 
-  // console.log('crnt habit', crntHabit);
+  /* <SmallButton title="Edit" onPress={handleEdit} /> Don't provide edit option for now */
   return (
     <SafeAreaView style={{flex: 1}}>
-      <Text style={styles.header1}>{crntHabit.title}</Text>
-      <SmallButton title="Edit" onPress={handleEdit} />
-      <DeleteButton confirmation={true} onPress={handleDelete} />
+      <View style={{flexDirection: 'row'}}>
+        <Text style={[styles.header1, {flexBasis: '81%'}]}>
+          {crntHabit.title}
+        </Text>
+        <DeleteButton confirmation={true} onPress={handleDelete} />
+      </View>
       {crntHabit ? (
         <EnhancedLogs habit={crntHabit} />
       ) : (
@@ -518,7 +558,9 @@ function LogHabit({habit}) {
   });
   const progress = useSharedValue(1);
   const min = useSharedValue(0);
-  const max = useSharedValue(10);
+  const max = useSharedValue(habit.scaleLimit);
+  const step = useSharedValue(habit.scaleStep);
+  const snapToStep = habit.scaleType === 'Stepped' ? true : false;
 
   const handleLogSave = async () => {
     logHabit(log)
@@ -532,17 +574,17 @@ function LogHabit({habit}) {
   };
 
   const handleCommentChange = val => {
-    setLog({scale: log.scale, comment: val, habit: log.habit});
+    setLog({...log, comment: val});
   };
 
   const handleSliderChange = val => {
-    setLog({scale: val, comment: log.comment, habit: log.habit});
+    setLog({...log, scale: val});
   };
 
   return (
     <View style={{flex: 1}}>
       <Text style={{alignSelf: 'center'}}>
-        {log.scale} | {log.comment}
+        {log.scale} / {habit.scaleLimit} {habit.scaleUnit}
       </Text>
       <Slider
         style={{marginHorizontal: 10}}
@@ -552,16 +594,16 @@ function LogHabit({habit}) {
           maximumTrackTintColor: primarycolors[0].hex,
           minimumTrackTintColor: primarycolors[3].hex,
         }}
-        sliderHeight={60}
+        sliderHeight={10}
         progress={progress}
         minimumValue={min}
         maximumValue={max}
+        step={10}
+        snapToStep={true}
         onSlidingComplete={handleSliderChange}
       />
       <TextInput
         style={inputStyle}
-        multiline
-        numberOfLines={3}
         placeholder="Comments ..."
         onChangeText={handleCommentChange}
       />
@@ -769,20 +811,21 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   inputStyleDark: {
-    padding: 16,
-    marginVertical: 10,
+    padding: 12,
+    marginVertical: 8,
+    marginHorizontal: 10,
     backgroundColor: blackcolors[7].hex,
     borderWidth: 1,
     borderColor: blackcolors[5].hex,
   },
   inputStyleLight: {
-    padding: 16,
+    padding: 12,
     marginVertical: 8,
     marginHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: blackcolors[2].hex,
+    backgroundColor: blackcolors[1].hex,
     borderWidth: 1,
-    borderColor: blackcolors[4].hex,
+    borderColor: blackcolors[3].hex,
   },
   darkBg: {
     backgroundColor: blackcolors[8].hex,
@@ -791,7 +834,6 @@ const styles = StyleSheet.create({
     backgroundColor: blackcolors[1].hex,
   },
   buttonGroup: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'no-wrap',
     justifyContent: 'space-around',
@@ -806,9 +848,11 @@ const styles = StyleSheet.create({
   smallButton: {
     borderRadius: 10,
     alignItems: 'center',
-    padding: 8,
-    borderWidth: 2,
+    padding: 4,
+    borderWidth: 1,
     margin: 10,
+    marginLeft: 2,
+    flexBasis: '12%',
   },
 });
 

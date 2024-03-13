@@ -19,9 +19,9 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {useSharedValue} from 'react-native-reanimated';
-import Slider from '@react-native-community/slider';
+import {Slider} from 'react-native-awesome-slider';
 
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {FlatList, GestureHandlerRootView} from 'react-native-gesture-handler';
 
 import {
   saveHabit,
@@ -35,9 +35,60 @@ import {withObservables} from '@nozbe/watermelondb/react';
 import EmojiPicker from 'rn-emoji-keyboard';
 import BottomSheet, {BottomSheetView} from '@gorhom/bottom-sheet';
 
+const green = [
+  '#02cc93',
+  '#06d197',
+  '#09d59b',
+  '#0ddaa0',
+  '#10dea4',
+  '#14e3a8',
+  '#17e7ac',
+  '#1becb1',
+  '#1ef0b5',
+  '#1effb5',
+];
+const red = [
+  '#03071e',
+  '#370617',
+  '#6a040f',
+  '#9d0208',
+  '#d00000',
+  '#dc2f02',
+  '#e85d04',
+  '#f48c06',
+  '#faa307',
+  '#ffa307',
+];
+const blue = [
+  '#024686',
+  '#02529c',
+  '#025eb2',
+  '#1f7fd8',
+  '#3ba0fd',
+  '#5cb0fe',
+  '#7cc0fe',
+  '#9dd0fe',
+  '#bedffe',
+  '#bed0ff',
+];
+const black = [
+  '#f8f9fa',
+  '#e9ecef',
+  '#dee2e6',
+  '#ced4da',
+  '#adb5bd',
+  '#6c757d',
+  '#495057',
+  '#343a40',
+  '#212529',
+  '#010101',
+];
 const Stack = createNativeStackNavigator();
 
 function ButtonGroup({buttons, selectedIndex, onPress}) {
+  const isDarkMode = useColorScheme() === 'dark';
+  const bgColor = isDarkMode ? black[6] : black[1];
+  const activeColor = isDarkMode ? blue[2] : blue[6];
   const getBtnBorderRadius = index => {
     if (index > 0 && index === buttons.length - 1) {
       return {borderBottomRightRadius: 10, borderTopRightRadius: 10};
@@ -50,10 +101,10 @@ function ButtonGroup({buttons, selectedIndex, onPress}) {
 
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const getBtnBackground = index => {
-    if (activeIndex && index === activeIndex) {
-      return {backgroundColor: 'lightblue'};
+    if (activeIndex !== undefined && index === activeIndex) {
+      return {backgroundColor: activeColor};
     } else {
-      return {backgroundColor: 'white'};
+      return {backgroundColor: bgColor};
     }
   };
 
@@ -86,9 +137,7 @@ function ButtonGroup({buttons, selectedIndex, onPress}) {
               {padding: 10, flexBasis: flexBasisSize},
             ]}
             onPress={() => handleSelect(b, i)}>
-            <Text style={{color: blackcolors[7].hex, alignSelf: 'center'}}>
-              {b}
-            </Text>
+            <Text style={{color: black[7].hex, alignSelf: 'center'}}>{b}</Text>
           </Pressable>
         );
       })}
@@ -99,13 +148,19 @@ function ButtonGroup({buttons, selectedIndex, onPress}) {
 const AppButton = ({title, onPress}) => {
   const isDarkMode = useColorScheme() === 'dark';
   const backgroundStyle = {
-    backgroundColor: isDarkMode ? blackcolors[4].hex : blackcolors[3].hex,
+    backgroundColor: isDarkMode ? black[6] : black[2],
   };
   return (
     <Pressable
       onPress={onPress}
       style={[styles.appButtonContainer, backgroundStyle]}>
-      <Text style={styles.appButtonText}>{title}</Text>
+      <Text
+        style={[
+          styles.appButtonText,
+          {color: isDarkMode ? black[3] : black[6]},
+        ]}>
+        {title}
+      </Text>
     </Pressable>
   );
 };
@@ -117,7 +172,7 @@ function Section({children, title, onPress}) {
       style={[
         styles.sectionContainer,
         {
-          backgroundColor: isDarkMode ? blackcolors[7].hex : blackcolors[1].hex,
+          backgroundColor: isDarkMode ? black[7] : black[1],
         },
       ]}>
       <Pressable onPress={onPress}>
@@ -125,7 +180,7 @@ function Section({children, title, onPress}) {
           style={[
             styles.sectionTitle,
             {
-              color: isDarkMode ? blackcolors[7].hex : blackcolors[8].hex,
+              color: isDarkMode ? black[0] : black[7],
             },
           ]}>
           {title}
@@ -134,7 +189,7 @@ function Section({children, title, onPress}) {
           style={[
             styles.sectionDescription,
             {
-              color: isDarkMode ? blackcolors[0].hex : blackcolors[7].hex,
+              color: isDarkMode ? black[1] : black[7],
             },
           ]}>
           {children}
@@ -151,7 +206,7 @@ const Card = ({title, icon, subtitle, onPress}) => {
     <Pressable onPress={onPress}>
       <View
         style={{
-          backgroundColor: isDarkMode ? blackcolors[6].hex : 'white',
+          backgroundColor: isDarkMode ? black[8] : black[0],
           borderRadius: 10,
           width: 200,
           maxWidth: '100%',
@@ -167,18 +222,23 @@ const Card = ({title, icon, subtitle, onPress}) => {
             fontSize: 32,
             alignSelf: 'center',
             height: 70,
+            opacity: 1,
+            color: black[0],
           }}>
           {icon}
         </Text>
         <Text
           style={{
             fontFamily: 'Poppins-Regular',
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: 600,
+            color: isDarkMode ? black[1] : black[8],
           }}>
           {title}
         </Text>
-        <Text style={{fontSize: 16}}>{subtitle}</Text>
+        <Text style={{fontSize: 16, color: isDarkMode ? black[3] : black[8]}}>
+          {subtitle}
+        </Text>
       </View>
     </Pressable>
   );
@@ -189,7 +249,7 @@ const HabitList = ({habits, navigation}) => {
   return (
     <View
       style={{
-        backgroundColor: isDarkMode ? blackcolors[6].hex : blackcolors[1].hex,
+        backgroundColor: isDarkMode ? black[7] : black[1],
         flex: 1,
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -216,7 +276,7 @@ function HabitOverview({navigation}) {
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
-    backgroundColor: isDarkMode ? blackcolors[8].hex : blackcolors[1].hex,
+    backgroundColor: isDarkMode ? black[7] : black[1],
   };
 
   const handleOnPress = () => {
@@ -234,8 +294,9 @@ function HabitOverview({navigation}) {
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      <View>
-        <Section title="Hi Harsh,">Good Afternoon</Section>
+      <View style={{flexDirection: 'row', alignContent: 'space-between'}}>
+        <Section title="Simpletrack">Minimal & Offline Habit Tracker</Section>
+        <ThemeSwitcher />
       </View>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
@@ -254,6 +315,7 @@ function NewHabit({navigation, route}) {
     ? styles.inputStyleDark
     : styles.inputStyleLight;
 
+  const bgColor = isDarkMode ? black[7] : black[1];
   const [isOpen, setIsOpen] = useState(false);
 
   const habitTypes = ['Good', 'Bad', 'Neutral'];
@@ -291,7 +353,7 @@ function NewHabit({navigation, route}) {
   };
 
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: bgColor}}>
       <View style={{flex: 2, alignItems: 'center', paddingVertical: 12}}>
         <Card title={habit.title} icon={habit.icon} subtitle={renderVerb} />
       </View>
@@ -355,25 +417,47 @@ function NewHabit({navigation, route}) {
   );
 }
 
-const HabitLogs = ({habit, logs}) => {
-  // console.info('Habit logs: ', logs);
+function FlatListItem({item}) {
+  const isDarkMode = useColorScheme() === 'dark';
+  const scaleColor = isDarkMode ? black[0] : black[8];
+  const commentColor = isDarkMode ? black[1] : black[7];
+  const dateColor = isDarkMode ? black[3] : black[5];
   const dateStr = timestamp => {
     return timestamp
-      ? new Date(timestamp).toDateString()
+      ? new Date(timestamp).toDateString() +
+          '@' +
+          new Date(timestamp).toLocaleTimeString('en-US')
       : new Date().toDateString();
   };
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        gap: 10,
+        marginVertical: 10,
+        marginLeft: 8,
+      }}>
+      <Text style={{fontSize: 30, color: scaleColor}}>{item.scale}</Text>
+      <View>
+        <Text style={{color: commentColor, fontSize: 14}}>{item.comment}</Text>
+        <Text style={{color: dateColor, fontSize: 14}}>
+          {dateStr(item.createdAt)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+const HabitLogs = ({habit, logs}) => {
+  const isDarkMode = useColorScheme() === 'dark';
+  const bgColor = isDarkMode ? black[8] : black[1];
   if (logs && logs.length > 0) {
     return (
       <View>
-        <ScrollView>
-          {logs.map(l => {
-            return (
-              <Section title={l.scale} key={l.id} style={{color: 'black'}}>
-                {l.comment} | {dateStr(l.createdAt)}
-              </Section>
-            );
-          })}
-        </ScrollView>
+        <FlatList
+          style={{backgroundColor: bgColor, borderRadius: 6, margin: 8}}
+          data={logs}
+          renderItem={({item}) => <FlatListItem item={item} />}
+        />
       </View>
     );
   } else {
@@ -385,12 +469,21 @@ const HabitLogs = ({habit, logs}) => {
   }
 };
 
-function SmallButton({title, onPress}) {
+function SmallButton({title, onPress, borderVisible}) {
   const isDarkMode = useColorScheme() === 'dark';
   const btnColor = isDarkMode ? 'white' : 'black';
+  const borderWidth = borderVisible ? 1 : 0;
   return (
     <Pressable
-      style={[styles.smallButton, {borderColor: btnColor, color: btnColor}]}
+      style={[
+        styles.smallButton,
+        {
+          borderWidth: borderWidth,
+          borderColor: btnColor,
+          color: btnColor,
+          justifyContent: 'center',
+        },
+      ]}
       onPress={onPress}>
       <Text style={{textTransform: 'uppercase', color: btnColor, fontSize: 24}}>
         {title}
@@ -399,18 +492,38 @@ function SmallButton({title, onPress}) {
   );
 }
 
+function ThemeSwitcher() {
+  const [title, setTitle] = useState('☀️');
+  const isDarkMode = useColorScheme() === 'dark';
+  const switchTheme = () => {
+    if (isDarkMode) {
+      Appearance.setColorScheme('light');
+      setTitle('☀️');
+    } else {
+      Appearance.setColorScheme('dark');
+      setTitle('🌙');
+    }
+  };
+  return (
+    <SmallButton title={title} onPress={switchTheme} borderVisible={false} />
+  );
+}
 function DeleteButton({confirmation, onPress}) {
   const handleDelete = () => {
     if (confirmation) {
       // open confirmation
-      Alert.alert('Confirmation', 'Are you sure ?', [
-        {
-          text: 'Cancel',
-          onPress: () => console.log('Cancel Pressed'),
-          style: 'cancel',
-        },
-        {text: 'OK', onPress: () => onPress()},
-      ]);
+      Alert.alert(
+        'Confirmation',
+        'Are you sure you want to delete this habit ?',
+        [
+          {
+            text: 'Cancel',
+            onPress: () => console.log('Cancel Pressed'),
+            style: 'cancel',
+          },
+          {text: 'OK', onPress: () => onPress()},
+        ],
+      );
     } else {
       onPress();
     }
@@ -419,7 +532,12 @@ function DeleteButton({confirmation, onPress}) {
     <Pressable
       style={[
         styles.smallButton,
-        {flexBasis: '17%', borderColor: 'red', color: 'red'},
+        {
+          flexBasis: '17%',
+          borderColor: 'red',
+          color: 'red',
+          justifyContent: 'center',
+        },
       ]}
       onPress={handleDelete}>
       <Text style={{textTransform: 'uppercase', color: 'red', fontSize: 12}}>
@@ -456,7 +574,11 @@ function EditHabit({habit, sheetRef}) {
         value={title}
         onChangeText={nt => setTitle(nt)}
       />
-      <SmallButton title={icon} onPress={() => setIsOpen(true)} />
+      <SmallButton
+        title={icon}
+        onPress={() => setIsOpen(true)}
+        borderVisible={true}
+      />
       <EmojiPicker
         onEmojiSelected={e => setIcon(e.emoji)}
         open={isOpen}
@@ -473,6 +595,10 @@ function EditHabit({habit, sheetRef}) {
 }
 
 function ViewHabit({navigation, route}) {
+  const isDarkMode = useColorScheme() === 'dark';
+  const bgColor = isDarkMode ? black[7] : black[1];
+  const sheetBgColor = isDarkMode ? black[8] : black[1];
+  const indicatorColor = isDarkMode ? black[0] : black[9];
   const crntHabit = route.params.habit;
   // getAllLogs()
   //   .then(allLogs => {
@@ -509,7 +635,7 @@ function ViewHabit({navigation, route}) {
 
   /* <SmallButton title="Edit" onPress={handleEdit} /> Don't provide edit option for now */
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: bgColor}}>
       <View style={{flexDirection: 'row'}}>
         <Text style={[styles.header1, {flexBasis: '81%'}]}>
           {crntHabit.title}
@@ -524,8 +650,14 @@ function ViewHabit({navigation, route}) {
       <BottomSheet
         snapPoints={[60, '60%']}
         enablePanDownToClose={true}
+        style={{backgroundColor: sheetBgColor}}
         ref={editSheetRef}>
-        <BottomSheetView style={{flex: 1, paddingHorizontal: 7}}>
+        <BottomSheetView
+          style={{
+            flex: 1,
+            paddingHorizontal: 7,
+            backgroundColor: sheetBgColor,
+          }}>
           <Text style={{alignSelf: 'center', fontSize: 20}}>Edit</Text>
           <EditHabit habit={crntHabit} sheetRef={editSheetRef} />
           <AppButton
@@ -534,8 +666,18 @@ function ViewHabit({navigation, route}) {
           />
         </BottomSheetView>
       </BottomSheet>
-      <BottomSheet snapPoints={[60, '40%']} topInset={2} ref={logSheetRef}>
-        <BottomSheetView style={{flex: 1, paddingHorizontal: 7}}>
+      <BottomSheet
+        snapPoints={[60, '40%']}
+        topInset={2}
+        ref={logSheetRef}
+        handleStyle={{backgroundColor: sheetBgColor}}
+        handleIndicatorStyle={{backgroundColor: indicatorColor}}>
+        <BottomSheetView
+          style={{
+            flex: 1,
+            paddingHorizontal: 7,
+            backgroundColor: sheetBgColor,
+          }}>
           <Text style={{alignSelf: 'center', fontSize: 20}}>Log</Text>
           <LogHabit habit={crntHabit} />
         </BottomSheetView>
@@ -551,16 +693,30 @@ function LogHabit({habit}) {
     ? styles.inputStyleDark
     : styles.inputStyleLight;
 
+  const sliderBg = isDarkMode ? black[7] : black[0];
   const [log, setLog] = useState({
     scale: 0,
     comment: '',
     habit: habit,
   });
-  const progress = useSharedValue(1);
+  const getTintColor = index => {
+    if (habit.habitType) {
+      if (habit.habitType === 'Good') {
+        return green[index];
+      } else if (habit.habitType === 'Bad') {
+        return red[index];
+      } else {
+        return blue[index];
+      }
+    } else {
+      return blue[index];
+    }
+  };
+  const [progressColor, setProgressColor] = useState(getTintColor(0));
+  const maxVal = habit.scaleLimit > 0 ? habit.scaleLimit : 100;
   const min = useSharedValue(0);
-  const max = useSharedValue(habit.scaleLimit);
-  const step = useSharedValue(habit.scaleStep);
-  const snapToStep = habit.scaleType === 'Stepped' ? true : false;
+  const max = useSharedValue(maxVal);
+  const progress = useSharedValue(0);
 
   const handleLogSave = async () => {
     logHabit(log)
@@ -577,34 +733,48 @@ function LogHabit({habit}) {
     setLog({...log, comment: val});
   };
 
+  const unitStep = maxVal / 10;
+
   const handleSliderChange = val => {
     setLog({...log, scale: val});
   };
 
+  const handleColorChange = val => {
+    setProgressColor(getTintColor(10 - Math.floor(val / unitStep)));
+  };
+
+  // console.log(`${habit.title}-${habit.scaleLimit}-${getTintColor(7)}`);
   return (
     <View style={{flex: 1}}>
-      <Text style={{alignSelf: 'center'}}>
+      <Text style={[styles.header1, {alignSelf: 'center'}]}>
         {log.scale} / {habit.scaleLimit} {habit.scaleUnit}
       </Text>
       <Slider
-        style={{marginHorizontal: 10}}
-        containerStyle={{
-          borderRadius: 10,
-          backgroundColor: inputStyle.backgroundColor,
-          maximumTrackTintColor: primarycolors[0].hex,
-          minimumTrackTintColor: primarycolors[3].hex,
+        style={{borderRadius: 10, marginHorizontal: 10}}
+        theme={{
+          disableMinTrackTintColor: '#fff',
+          maximumTrackTintColor: sliderBg,
+          minimumTrackTintColor: progressColor,
+          cacheTrackTintColor: '#333',
+          bubbleBackgroundColor: '#666',
         }}
-        sliderHeight={10}
         progress={progress}
         minimumValue={min}
         maximumValue={max}
         step={10}
-        snapToStep={true}
+        snapToStep
+        thumbWidth={10}
+        sliderHeight={60}
+        containerStyle={{
+          borderRadius: 10,
+        }}
         onSlidingComplete={handleSliderChange}
+        onValueChange={handleColorChange}
       />
       <TextInput
-        style={inputStyle}
+        style={[inputStyle, {borderRadius: 10}]}
         placeholder="Comments ..."
+        value={log.comment}
         onChangeText={handleCommentChange}
       />
       <AppButton onPress={handleLogSave} title="Save" />
@@ -613,165 +783,54 @@ function LogHabit({habit}) {
 }
 
 function App() {
-  Appearance.setColorScheme('light');
+  Appearance.setColorScheme('dark');
+  const isDarkMode = useColorScheme() === 'dark';
+  const headerBg = isDarkMode ? black[7] : black[1];
   return (
     <GestureHandlerRootView style={{flex: 1, flexGrow: 1}}>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Habits">
-          <Stack.Screen name="Habits" component={HabitOverview} />
-          <Stack.Screen name="Create" component={NewHabit} />
-          <Stack.Screen name="View" component={ViewHabit} />
+        <Stack.Navigator
+          initialRouteName="Habits"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: headerBg,
+            },
+            headerShadowVisible: false,
+            headerTitleStyle: {
+              color: isDarkMode ? black[3] : black[8],
+            },
+          }}>
+          <Stack.Screen
+            name="Habits"
+            component={HabitOverview}
+            options={{
+              header: () => {
+                null;
+              },
+            }}
+          />
+          <Stack.Screen
+            name="Create"
+            component={NewHabit}
+            options={{
+              title: 'Create habit',
+              headerBackVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="View"
+            component={ViewHabit}
+            options={{
+              title: 'View habit',
+              headerBackVisible: false,
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView>
   );
 }
 
-const primarycolors = [
-  {
-    name: 'blue-1',
-    hex: '#c2d9ff',
-    rgb: [194, 217, 255],
-    hsl: [217.4, 100, 88],
-  },
-  {
-    name: 'blue-2',
-    hex: '#7752fe',
-    rgb: [119, 82, 254],
-    hsl: [252.2, 98.9, 65.9],
-  },
-  {
-    name: 'blue-3',
-    hex: '#8e8ffa',
-    rgb: [142, 143, 250],
-    hsl: [239.4, 91.5, 76.9],
-  },
-  {
-    name: 'blue-4',
-    hex: '#190482',
-    rgb: [25, 4, 130],
-    hsl: [250, 94, 26.3],
-  },
-];
-
-const statuscolors = [
-  {
-    name: 'red-10',
-    hex: '#03071e',
-    rgb: [3, 7, 30],
-    hsl: [231, 82, 6],
-  },
-  {
-    name: 'red-9',
-    hex: '#370617',
-    rgb: [55, 6, 23],
-    hsl: [339, 80, 12],
-  },
-  {
-    name: 'red-8',
-    hex: '#6a040f',
-    rgb: [106, 4, 15],
-    hsl: [354, 93, 22],
-  },
-  {
-    name: 'red-7',
-    hex: '#9d0208',
-    rgb: [157, 2, 8],
-    hsl: [358, 97, 31],
-  },
-  {
-    name: 'red-6',
-    hex: '#d00000',
-    rgb: [208, 0, 0],
-    hsl: [0, 100, 41],
-  },
-  {
-    name: 'red-5',
-    hex: '#dc2f02',
-    rgb: [220, 47, 2],
-    hsl: [12, 98, 44],
-  },
-  {
-    name: 'red-4',
-    hex: '#e85d04',
-    rgb: [232, 93, 4],
-    hsl: [23, 97, 46],
-  },
-  {
-    name: 'red-3',
-    hex: '#f48c06',
-    rgb: [244, 140, 6],
-    hsl: [34, 95, 49],
-  },
-  {
-    name: 'red-2',
-    hex: '#faa307',
-    rgb: [250, 163, 7],
-    hsl: [39, 96, 50],
-  },
-  {
-    name: 'red-1',
-    hex: '#ffba08',
-    rgb: [255, 186, 8],
-    hsl: [43, 100, 52],
-  },
-];
-const blackcolors = [
-  {
-    name: 'black-1',
-    hex: 'f8f9fa',
-    rgb: [248, 249, 250],
-    hsl: [210, 17, 98],
-  },
-  {
-    name: 'black-2',
-    hex: '#e9ecef',
-    rgb: [233, 236, 239],
-    hsl: [210, 16, 93],
-  },
-  {
-    name: 'black-3',
-    hex: '#dee2e6',
-    rgb: [222, 226, 230],
-    hsl: [210, 14, 89],
-  },
-  {
-    name: 'black-4',
-    hex: '#ced4da',
-    rgb: [206, 212, 218],
-    hsl: [210, 14, 83],
-  },
-  {
-    name: 'black-5',
-    hex: '#adb5bd',
-    rgb: [173, 181, 189],
-    hsl: [210, 11, 71],
-  },
-  {
-    name: 'black-6',
-    hex: '#6c757d',
-    rgb: [108, 117, 125],
-    hsl: [208, 7, 46],
-  },
-  {
-    name: 'black-7',
-    hex: '#495057',
-    rgb: [73, 80, 87],
-    hsl: [210, 9, 31],
-  },
-  {
-    name: 'black-8',
-    hex: '#343a40',
-    rgb: [52, 58, 64],
-    hsl: [210, 10, 23],
-  },
-  {
-    name: 'black-9',
-    hex: '#212529',
-    rgb: [33, 37, 41],
-    hsl: [210, 11, 15],
-  },
-];
 const styles = StyleSheet.create({
   sectionContainer: {
     marginTop: 16,
@@ -779,13 +838,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
   },
   sectionDescription: {
     marginTop: 8,
     marginBottom: 8,
     fontSize: 18,
     fontWeight: '400',
+    fontFamily: 'Poppins-Regular',
   },
   highlight: {
     fontWeight: '700',
@@ -814,24 +875,25 @@ const styles = StyleSheet.create({
     padding: 12,
     marginVertical: 8,
     marginHorizontal: 10,
-    backgroundColor: blackcolors[7].hex,
+    backgroundColor: black[7],
     borderWidth: 1,
-    borderColor: blackcolors[5].hex,
+    borderColor: black[5],
+    borderRadius: 10,
   },
   inputStyleLight: {
     padding: 12,
     marginVertical: 8,
     marginHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: blackcolors[1].hex,
+    backgroundColor: black[0],
     borderWidth: 1,
-    borderColor: blackcolors[3].hex,
+    borderColor: black[2],
   },
   darkBg: {
-    backgroundColor: blackcolors[8].hex,
+    backgroundColor: black[7],
   },
   lightBg: {
-    backgroundColor: blackcolors[1].hex,
+    backgroundColor: black[0],
   },
   buttonGroup: {
     flexDirection: 'row',
@@ -844,6 +906,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingTop: 12,
     paddingLeft: 12,
+    marginBottom: 8,
   },
   smallButton: {
     borderRadius: 10,

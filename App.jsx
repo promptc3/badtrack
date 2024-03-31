@@ -18,7 +18,7 @@ import {
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
-import {useSharedValue} from 'react-native-reanimated';
+import Animated, {useSharedValue} from 'react-native-reanimated';
 import {Slider} from 'react-native-awesome-slider';
 
 import {FlatList, GestureHandlerRootView} from 'react-native-gesture-handler';
@@ -29,11 +29,13 @@ import {
   allHabits,
   deleteHabit,
   updateHabit,
+  deleteLog,
 } from './model/helper';
 import {withObservables} from '@nozbe/watermelondb/react';
 
 import EmojiPicker from 'rn-emoji-keyboard';
 import BottomSheet, {BottomSheetView} from '@gorhom/bottom-sheet';
+import Svg, {Rect} from 'react-native-svg';
 
 const green = [
   '#02cc93',
@@ -419,15 +421,21 @@ function NewHabit({navigation, route}) {
 
 function FlatListItem({item}) {
   const isDarkMode = useColorScheme() === 'dark';
-  const scaleColor = isDarkMode ? black[0] : black[8];
   const commentColor = isDarkMode ? black[1] : black[7];
   const dateColor = isDarkMode ? black[3] : black[5];
+  let scaleColor = isDarkMode ? black[0] : black[8];
+  if (item.renderColor) {
+    scaleColor = item.renderColor;
+  }
   const dateStr = timestamp => {
     return timestamp
       ? new Date(timestamp).toDateString() +
           '@' +
           new Date(timestamp).toLocaleTimeString('en-US')
       : new Date().toDateString();
+  };
+  const handleLogDelete = async () => {
+    await deleteLog(item);
   };
   return (
     <View
@@ -436,6 +444,7 @@ function FlatListItem({item}) {
         gap: 10,
         marginVertical: 10,
         marginLeft: 8,
+        justifyContent: 'space-around',
       }}>
       <Text style={{fontSize: 30, color: scaleColor}}>{item.scale}</Text>
       <View>
@@ -444,6 +453,12 @@ function FlatListItem({item}) {
           {dateStr(item.createdAt)}
         </Text>
       </View>
+      <DeleteButton
+        itemName={'log'}
+        caption={'❌'}
+        confirmation={true}
+        onPress={handleLogDelete}
+      />
     </View>
   );
 }
@@ -498,23 +513,23 @@ function ThemeSwitcher() {
   const switchTheme = () => {
     if (isDarkMode) {
       Appearance.setColorScheme('light');
-      setTitle('☀️');
+      setTitle('️🌙');
     } else {
       Appearance.setColorScheme('dark');
-      setTitle('🌙');
+      setTitle('☀️');
     }
   };
   return (
     <SmallButton title={title} onPress={switchTheme} borderVisible={false} />
   );
 }
-function DeleteButton({confirmation, onPress}) {
+function DeleteButton({itemName, caption, confirmation, onPress}) {
   const handleDelete = () => {
     if (confirmation) {
       // open confirmation
       Alert.alert(
         'Confirmation',
-        'Are you sure you want to delete this habit ?',
+        `Are you sure you want to delete this ${itemName} ?`,
         [
           {
             text: 'Cancel',
@@ -534,14 +549,19 @@ function DeleteButton({confirmation, onPress}) {
         styles.smallButton,
         {
           flexBasis: '17%',
-          borderColor: 'red',
-          color: 'red',
+          borderWidth: 0,
           justifyContent: 'center',
         },
       ]}
       onPress={handleDelete}>
-      <Text style={{textTransform: 'uppercase', color: 'red', fontSize: 12}}>
-        Delete
+      <Text
+        style={{
+          textTransform: 'uppercase',
+          color: red[5],
+          fontSize: 16,
+          alignSelf: 'flex-end',
+        }}>
+        {caption}
       </Text>
     </Pressable>
   );
@@ -640,7 +660,12 @@ function ViewHabit({navigation, route}) {
         <Text style={[styles.header1, {flexBasis: '81%'}]}>
           {crntHabit.title}
         </Text>
-        <DeleteButton confirmation={true} onPress={handleDelete} />
+        <DeleteButton
+          itemName={'habit'}
+          caption={'DELETE'}
+          confirmation={true}
+          onPress={handleDelete}
+        />
       </View>
       {crntHabit ? (
         <EnhancedLogs habit={crntHabit} />
@@ -694,10 +719,12 @@ function LogHabit({habit}) {
     : styles.inputStyleLight;
 
   const sliderBg = isDarkMode ? black[7] : black[0];
+  const sliderFg = isDarkMode ? black[1] : black[8];
   const [log, setLog] = useState({
     scale: 0,
     comment: '',
     habit: habit,
+    renderColor: '#fff',
   });
   const getTintColor = index => {
     if (habit.habitType) {
@@ -712,7 +739,7 @@ function LogHabit({habit}) {
       return blue[index];
     }
   };
-  const [progressColor, setProgressColor] = useState(getTintColor(0));
+  const logTextColor = useSharedValue(getTintColor(0));
   const maxVal = habit.scaleLimit > 0 ? habit.scaleLimit : 100;
   const min = useSharedValue(0);
   const max = useSharedValue(maxVal);
@@ -722,7 +749,13 @@ function LogHabit({habit}) {
     logHabit(log)
       .then(newLog => {
         console.log('Saved new log', newLog);
-        setLog({scale: 0, comment: '', habit: log.habit});
+        setLog({
+          scale: 0,
+          comment: '',
+          habit: log.habit,
+          renderColor: sliderFg,
+        });
+        logTextColor.value = sliderFg;
       })
       .catch(err => {
         console.error('Failed to save log', err);
@@ -740,21 +773,24 @@ function LogHabit({habit}) {
   };
 
   const handleColorChange = val => {
-    setProgressColor(getTintColor(10 - Math.floor(val / unitStep)));
+    const cl = getTintColor(10 - Math.floor(val / unitStep));
+    logTextColor.value = cl;
+    setLog({...log, renderColor: cl});
   };
 
   // console.log(`${habit.title}-${habit.scaleLimit}-${getTintColor(7)}`);
   return (
     <View style={{flex: 1}}>
-      <Text style={[styles.header1, {alignSelf: 'center'}]}>
+      <Animated.Text
+        style={[styles.header1, {alignSelf: 'center', color: logTextColor}]}>
         {log.scale} / {habit.scaleLimit} {habit.scaleUnit}
-      </Text>
+      </Animated.Text>
       <Slider
         style={{borderRadius: 10, marginHorizontal: 10}}
         theme={{
           disableMinTrackTintColor: '#fff',
           maximumTrackTintColor: sliderBg,
-          minimumTrackTintColor: progressColor,
+          minimumTrackTintColor: '#5cb0fe',
           cacheTrackTintColor: '#333',
           bubbleBackgroundColor: '#666',
         }}
@@ -764,6 +800,16 @@ function LogHabit({habit}) {
         step={10}
         snapToStep
         thumbWidth={10}
+        renderThumb={() => (
+          <View style={[styles.customThumb, {borderColor: sliderFg}]}>
+            <Text style={{fontSize: 24}}>{habit.icon}</Text>
+          </View>
+        )}
+        renderMark={() => (
+          <Svg height="100" width="30" viewBox="0 2 100 100">
+            <Rect x="0" y="0" height="120" width="7" fill={sliderFg} />
+          </Svg>
+        )}
         sliderHeight={60}
         containerStyle={{
           borderRadius: 10,
@@ -916,6 +962,16 @@ const styles = StyleSheet.create({
     margin: 10,
     marginLeft: 2,
     flexBasis: '12%',
+  },
+  customThumb: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: '#828282aa',
   },
 });
 

@@ -65,17 +65,24 @@ export async function fetchLogsByHabitId(habitId) {
   return logs;
 }
 
-export async function logHabit({scale, comment, habit}) {
+export async function logHabit({scale, comment, habit, renderColor}) {
   const newLogWithHabit = await database.write(async () => {
     const newLog = await database.get('habitlogs').create(log => {
       log.habit.set(habit);
       log.scale = scale;
       log.comment = comment;
+      log.renderColor = renderColor;
     });
     return newLog;
   });
   return newLogWithHabit;
 }
+
+export const deleteLog = async log => {
+  await database.write(async () => {
+    await log.destroyPermanently();
+  });
+};
 
 // Function to fetch all logs from the database
 export async function getAllLogs() {
